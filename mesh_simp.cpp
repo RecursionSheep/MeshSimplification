@@ -91,7 +91,7 @@ public:
 	ver_pair(int _u, int _v, double _err, double _x, double _y, double _z, int _time): u(_u), v(_v), err(_err), x(_x), y(_y), z(_z), time_cnt(_time) {}
 };
 inline bool operator <(const ver_pair &a, const ver_pair &b) {
-	return a.err > b.err;
+	return (a.err > b.err + 1e-9) || (fabs(a.err - b.err) < 1e-9 && (rand() & 1));
 }
 
 priority_queue<ver_pair> heap;
@@ -175,7 +175,9 @@ double computeMinCost(int u, int v, double *_x, double *_y, double *_z) {
 			x2 = vertices[v2].x - x[0]; y2 = vertices[v2].y - x[1]; z2 = vertices[v2].z - x[2];
 			nna = y1 * z2 - y2 * z1; nnb = z1 * x2 - z2 * x1; nnc = x1 * y2 - x2 * y1;
 		}
-		if (na * nna + nb * nnb + nc * nnc <= 0) {
+		double len1 = sqrt(na * na + nb * nb + nc * nc), len2 = sqrt(nna * nna + nnb * nnb + nnc * nnc);
+		na /= len1; nb /= len1; nc /= len1; nna /= len2; nnb /= len2; nnc /= len2;
+		if (na * nna + nb * nnb + nc * nnc <= .25) {
 			cost = 1e5;
 			//fprintf(stderr, "inverse\n");
 			break;
@@ -209,7 +211,9 @@ double computeMinCost(int u, int v, double *_x, double *_y, double *_z) {
 			x2 = vertices[v2].x - x[0]; y2 = vertices[v2].y - x[1]; z2 = vertices[v2].z - x[2];
 			nna = y1 * z2 - y2 * z1; nnb = z1 * x2 - z2 * x1; nnc = x1 * y2 - x2 * y1;
 		}
-		if (na * nna + nb * nnb + nc * nnc <= 0) {
+		double len1 = sqrt(na * na + nb * nb + nc * nc), len2 = sqrt(nna * nna + nnb * nnb + nnc * nnc);
+		na /= len1; nb /= len1; nc /= len1; nna /= len2; nnb /= len2; nnc /= len2;
+		if (na * nna + nb * nnb + nc * nnc <= .25) {
 			cost = 1e5;
 			//fprintf(stderr, "inverse\n");
 			break;
@@ -242,15 +246,17 @@ void simplify() {
 		}
 	
 	int target = (int)((1 - simp_rate) * face_num) >> 1;
+	double cost = 0;
 	//fprintf(stderr, "%d\n", target);
 	for (int cnt = 0; cnt < target; cnt++) {
 		//fprintf(stderr, "%d\n", cnt);
 		while (!heap.empty() && !valid(heap.top())) heap.pop();
 		if (heap.empty()) {
-			fprintf(stderr, "%d\n", cnt);
+			fprintf(stderr, "Stop after %d operations.\n", cnt);
 			break;
 		}
 		ver_pair edge = heap.top(); heap.pop();
+		cost += edge.err;
 		u = edge.u; v = edge.v;
 		//if (cnt < 10) fprintf(stderr, "%d %d\n", u, v);
 		assert(u < v);
@@ -317,6 +323,7 @@ void simplify() {
 			}
 		}
 	}
+	fprintf(stderr, "%.6lf\n", cost);
 }
 
 int D;
@@ -368,6 +375,7 @@ int main(int argc, char *argv[]) {
 		puts("Usage: mesh_simp [input model] [output model] [simp rate] [dist threshold]");
 		return 0;
 	}
+	clock_t start = clock();
 	freopen(argv[1], "r", stdin);
 	freopen(argv[2], "w", stdout);
 	simp_rate = atof(argv[3]);
@@ -449,6 +457,9 @@ int main(int argc, char *argv[]) {
 	delete [] pre;
 	delete [] id;
 	delete [] bound;
+	
+	clock_t finish = clock();
+	fprintf(stderr, "The simplification is done in %.4lf seconds\n", (double)(finish - start) / CLOCKS_PER_SEC);
 	
 	return 0;
 }
